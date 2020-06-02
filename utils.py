@@ -3,17 +3,20 @@ import numpy as np
 
 
 def image_extensions():
-    return ['.jpg', '.jpeg', '.png', '.tiff', '.bmp', '.pgm']
+    """
+    Image extensions
+    """
+    return ['.bmp', '.gif', '.jpg', '.jpeg', '.pgm', '.png', '.tiff']
 
 
 def is_image(file_name):
     """
     Return true if the image is an image file
-    :param image: A string
+    :param image: A string with the file name and the extension
     :return: True if the file is an image
     """
     extensions = image_extensions()
-    if any([True if ext in file_name.lower() else False for ext in extensions]):
+    if any([True if ext == file_name.lower()[-len(ext):] else False for ext in extensions]):
         return True
 
     return False

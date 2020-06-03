@@ -618,6 +618,37 @@ class Augmentor(object):
 
         return output
 
+    def sharpness(self, images, values, **kwargs):
+        """
+        Blurred or sharp an image
+        :param images: A list of numpy arrays, each being an image
+        :param values: 2 values: minimum value for the sharpness. It cannot be smaller than -5
+                                 maximum value for the sharpness. It cannot be greater than 5.
+
+                                The standard sharpness value is between 0 and 2, whereas 0 means blurred images,
+                                1 means original image and 2 sharp image. However, negative values can be used to get
+                                very blurry images and values greater than 2. The restrictions are -5 to 5 since
+                                beyond those boundaries the fourier coefficients fail. It is recommended to use values
+                                from -1 to 3.
+        :param kwargs: For this operation, the only extra parameter is the whether an image is a mask.
+                         mask_positions: The positions in images that are masks.
+        :return: A list of image with changed contrast
+        """
+
+        factor = checker('sharpness', 'range of sharpness', values, 2, -5, 5)
+        no_mask_positions = np.ones(len(images)).astype(bool)
+        for pos in kwargs.get('mask_positions', []): no_mask_positions[pos] = False
+
+        output = []
+        for i, image in enumerate(images):
+            if no_mask_positions[i]:
+                image_enhancers = ImageEnhance.Sharpness(image)
+                output.append(image_enhancers.enhance(factor))
+            else:
+                output.append(image)
+
+        return output
+
     def shear(self, images, values, **kwags):
         """
         Shear transformation of an image from https://github.com/mdbloice/Augmentor/blob/master/Augmentor/Operations.py

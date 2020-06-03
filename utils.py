@@ -371,3 +371,49 @@ def swap_patches(images, values, name_op, swapped_images, **kwargs):
                 ...] = patch
 
     return new_images
+
+
+def create_grid_masks(images, init_position, size_square, dist_between_squares, image_to_use, is_not_mask):
+    """
+    Create a grid of masks with intensities given by image_to_use. The dimensions of the grid of masks is given
+    by the size of the squares, the distance between squares and the most top left corner.
+
+    :param images: A list with the images to add the grid of masks
+    :param init_position: x and y of the most top left corner
+    :param size_square: The width and height of teh squares
+    :param dist_between_squares: The separation between squares in x and y
+    :param image_to_use: The image to use to extract the squares. It is assumed that image_to_use ahs the same channels
+                        as images.
+    :param is_not_mask: A list of boolean specifying whether the images are masks or not.
+    """
+    if not any(is_not_mask):
+        return images
+
+    im_index = is_not_mask.index(True)
+    xo, yo = init_position
+    sx, sy = size_square
+    dx, dy = dist_between_squares
+    shape = images[im_index].shape
+
+    # To create the mask, we are going to create one block containing the separation and one square, then it is going
+    # to be repeated until the size of the image, then it is going to be padded and cropped to the size of the image.
+    mask_base = np.zeros((sy + dy, sx + dx))
+    mask_base[:sy, :sx] = 1
+
+    ny = int(np.ceil(float(shape[0] - yo) / (sy + dy)))
+    nx = int(np.ceil(float(shape[1] - xo) / (sx + dx)))
+
+    mask_base = np.tile(mask_base, [ny, nx])
+    mask_base = np.pad(mask_base, pad_width=((yo, 0), (xo, 0)), constant_values=((0, 0), (0, 0)), mode='constant')
+    mask_base = mask_base[:shape[0], :shape[1]]
+
+    output = []
+    for i, image in enumerate(images):
+        mask = mask_base
+        if len(shape) == 3:
+            mask = np.tile(mask_base[..., None], [1, 1, 3])
+
+        image[mask==1] = image_to_use[i][mask==1]
+        output.append(image)
+
+    return output

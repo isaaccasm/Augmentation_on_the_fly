@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image, ImageOps, ImageEnhance
 from skimage.io import imread
 
-from utils import checker, check_range, convert_to_absolute, create_circular_mask, skew, swap_patches
+from utils import checker, check_range, convert_to_absolute, create_circular_mask, skew, swap_patches, create_grid_masks
 
 class Augmentor(object):
     """
@@ -28,6 +28,13 @@ class Augmentor(object):
                          - contrast: (min_value, max_value) contrast must be between 0 and 10
                          - flip: 'horizontal' or 'hor', 'vertical' or 'ver', both
                          - greyscale: []
+                         - grid_mask: (min_x_pos, max_x_pos, min_y_pos, max_y_pos, min_width_square, max_width_square,
+                                        min_height_square, max_heigth_square, min_x_distance_between_squares,
+                                        max_x_distance_between_squares, min_y_distance_between_squares, max_y_distance_between_squares)
+                                        Values must be between 0 to 1 sinc they are relative to the size of the image.
+                                        Generally, the initial position should be similar to the distance between squares
+                                        This type of augmentations can be used two o three times with different parameters, since it is
+                                        good to have a lot of different grids without having too much of the image covered.
                          - illumination: (min_radius, max_radius, min_magnitude, max_magnitude)  -- standard (0.05, 0.1, 100, 200)
                          - noise: (min_sigma, max_sigma) -- gaussian noise wiht mean 0
                          - occlusion: (type, min_height, max_height, min_width, max_width)  - creates a box of noise to block the image.
@@ -66,7 +73,7 @@ class Augmentor(object):
 
         self.initial_prob = {'flip': 0.5, 'solarise': 0.5, 'greyscale': 0.5, 'rgb_swapping': 0.5}
 
-        self.numpy_fun = ['illumination', 'noise', 'occlusion', 'posterisation', 'rgb_swapping', 'sample_pairing', 'translate']
+        self.numpy_fun = ['grid_mask', 'illumination', 'noise', 'occlusion', 'posterisation', 'rgb_swapping', 'sample_pairing', 'translate']
 
     @property
     def operations(self):
@@ -407,6 +414,65 @@ class Augmentor(object):
                 output.append(image)
 
         return output
+
+    def grid_mask(self, images, values, **kwargs):
+        """
+        Add a grid mask to the images following https://arxiv.org/pdf/2001.04086.pdf
+         :param images: A list of numpy arrays, each being an image
+         :param values: 8 values: Minimum and maximum value for the initial x position (top left corner of the top left square)
+                                     Minimum and maximum value for the initial y position (top left corner of the top left square)
+                                     Minimum and maximum value (range) for the width of the square
+                                     Minimum and maximum value (range) for the height of the square
+                                     Minimum and maximum value (range) for the x distance between square
+                                     Minimum and maximum value (range) for the y distance between square
+
+                                     All the values must be between 0 and 1 since they are relative to the image size.
+         :param kwargs: For this operation, the only extra parameter is the whether an image is a mask.
+                         mask_positions: The positions in images that are masks.
+                         use_colour: The colour to use. If the colour is not passed or it is a negative value or greater
+                        than 255, gaussian noise will be used instead.
+        :return: List of images with occlusions by a grid of masks
+        """
+        use_colour = kwargs.get('use_colour', -1)
+        no_mask_positions = np.ones(len(images)).astype(bool)
+        for pos in kwargs.get('mask_positions', []): no_mask_positions[pos] = False
+
+        if not hasattr(values, '__len__') or len(values) != 12:
+            raise ValueError(
+                'The number of values for the grid_mask operation must be a list or tuple with 12 values. The range of the initial point, square size and distance between square in x and y for the three of them')
+
+        if not self.check_images_equal_size(images):
+            print('For grid masks, the size of the images must be the same. Aborting')
+            return images
+
+        h, w = images[0].shape[:2]
+        params = []
+        name = 'grid_mask'
+        name_params = ['initial x position', 'initial y position', 'width square', 'height square',
+                       'x distance between squares', 'y distance between squares']
+        for i in range(len(values) // 2):
+            param = checker(name, name_params[i], values[i * 2:(i + 1) * 2], 2, 0, 1)
+            if i % 2 == 0:
+                param = int(np.ceil(param * w))
+            else:
+                param = int(np.ceil(param * h))
+            params.append(param)
+
+        images_to_use = []
+        for ii in range(len(images)):
+            if no_mask_positions[ii]:
+                if use_colour < 0 or use_colour > 255:
+                    im = 30 * np.random.randn(*(images[ii].shape)) + 127.5
+                    im[im < 0] = 0
+                    im[im > 255] = 255
+                else:
+                    im = use_colour * np.ones(tuple(images[ii].shape))
+            else:
+                im = np.zeros(tuple(images[ii].shape))
+            images_to_use.append(im)
+
+        return create_grid_masks(images, params[:2], params[2:4], params[4:], images_to_use,
+                                 no_mask_positions.tolist())
 
     def illumination(self, images, values, **kwargs):
         """

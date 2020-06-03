@@ -8,50 +8,50 @@ from utils import checker, check_range, convert_to_absolute, create_circular_mas
 
 class Augmentor(object):
     """
-	Modify images according to some augmenting functions. The input is a dictionary with a set of options. The keys are
-	the operations and the values the range or type of operations. Another option is to pass a dictionary as value where
-	values is the key for the values. This allows to pass other data such as probability that specifies the probability of
-	applying the operations, otherwise is set to 1.
+    Modify images according to some augmenting functions. The input is a dictionary with a set of options. The keys are
+    the operations and the values the range or type of operations. Another option is to pass a dictionary as value where
+    values is the key for the values. This allows to pass other data such as probability that specifies the probability of
+    applying the operations, otherwise is set to 1.
 
-	Some methods are rewritten from
-	https://github.com/mdbloice/Augmentor/blob/master/Augmentor/Operations.py
-	"""
+    Some methods are rewritten from
+    https://github.com/mdbloice/Augmentor/blob/master/Augmentor/Operations.py
+    """
 
     def __init__(self, operations, synthetic_image_creator=None, input_synthesizer_size=None, seed=None):
         '''
-		Use seed if you want to apply the same transformation to different group of images. For instance, when images and
-		masks need to be processed.
-		:param operations: This a dictionary with all the operations. The key are the operations and the values the parameters.
-						Possible keys and the expected value
-						 - brightness: (min_value, max_value) The values must for brightness must be between 0.05 and 10
-						 - color_balance: (min_value, max_value) color_balance must be between 0 and 10
-						 - contrast: (min_value, max_value) contrast must be between 0 and 10
-						 - flip: 'horizontal' or 'hor', 'vertical' or 'ver', both
-						 - greyscale: []
-						 - illumination: (min_radius, max_radius, min_magnitude, max_magnitude)  -- standard (0.05, 0.1, 100, 200)
-						 - noise: (min_sigma, max_sigma) -- gaussian noise wiht mean 0
-						 - occlusion: (type, min_height, max_height, min_width, max_width)  - creates a box of noise to block the image.
-									The types are hide_and_seek and cutout so far. As extra parameter accepts 'num_patches' which can be a number or a range
-									By default is 1.
-						 - posterisation: (min_number_levels, max_number_levels) Reduce the number of levels of the image. It is assumed a 255
-										level (at least it is going to be returned in this way). However, this will perform a reduction to less levels than 255
-						 - rgb swapping: True or False. This opertion swaps the RGB channels randomly
-						 - rotation: (min angle, max angle) - in degrees
-						 - sharpness: (min_value, max_value) - The values must be between -5 and 5, 1 means original image not 0.
-						 - shear: (type, magnitude_min, magnitude_max) types are "random", 'hor', 'ver'. The magnitude are the angles to shear in degrees
-						 - skew: (type, magnitude_min, magnitude_max), where types are: "TILT", "TILT_LEFT_RIGHT", "TILT_TOP_BOTTOM", "CORNER", "RANDOM", "ALL"
-						 - solarise: [] doing a solarisation (max(image) - image)
-						 - translate: (min_x, max_x, min_y, max_y) values are relative to the size of the image (0, 0.1, 0, 0.1)
-						 - whitening: (min_alpha, max_alpha)  -- new image is  alpha*white_image + (1-alpha) * image
-						 - zoom: (min value, max value) - the values are relative to the current size. So, 1 is the real size image (standard 0.9, 1.1)
+        Use seed if you want to apply the same transformation to different group of images. For instance, when images and
+        masks need to be processed.
+        :param operations: This a dictionary with all the operations. The key are the operations and the values the parameters.
+                        Possible keys and the expected value
+                         - brightness: (min_value, max_value) The values must for brightness must be between 0.05 and 10
+                         - color_balance: (min_value, max_value) color_balance must be between 0 and 10
+                         - contrast: (min_value, max_value) contrast must be between 0 and 10
+                         - flip: 'horizontal' or 'hor', 'vertical' or 'ver', both
+                         - greyscale: []
+                         - illumination: (min_radius, max_radius, min_magnitude, max_magnitude)  -- standard (0.05, 0.1, 100, 200)
+                         - noise: (min_sigma, max_sigma) -- gaussian noise wiht mean 0
+                         - occlusion: (type, min_height, max_height, min_width, max_width)  - creates a box of noise to block the image.
+                                    The types are hide_and_seek and cutout so far. As extra parameter accepts 'num_patches' which can be a number or a range
+                                    By default is 1.
+                         - posterisation: (min_number_levels, max_number_levels) Reduce the number of levels of the image. It is assumed a 255
+                                        level (at least it is going to be returned in this way). However, this will perform a reduction to less levels than 255
+                         - rgb swapping: True or False. This opertion swaps the RGB channels randomly
+                         - rotation: (min angle, max angle) - in degrees
+                         - sharpness: (min_value, max_value) - The values must be between -5 and 5, 1 means original image not 0.
+                         - shear: (type, magnitude_min, magnitude_max) types are "random", 'hor', 'ver'. The magnitude are the angles to shear in degrees
+                         - skew: (type, magnitude_min, magnitude_max), where types are: "TILT", "TILT_LEFT_RIGHT", "TILT_TOP_BOTTOM", "CORNER", "RANDOM", "ALL"
+                         - solarise: [] doing a solarisation (max(image) - image)
+                         - translate: (min_x, max_x, min_y, max_y) values are relative to the size of the image (0, 0.1, 0, 0.1)
+                         - whitening: (min_alpha, max_alpha)  -- new image is  alpha*white_image + (1-alpha) * image
+                         - zoom: (min value, max value) - the values are relative to the current size. So, 1 is the real size image (standard 0.9, 1.1)
 
-						 Apart from this, the values could be a dictionary where of the form {'values': [values], 'probability': 1, special_parameter: VALUE}
-						 The probability is the ratio of using this operation and special_parameters are indicated in the above descriptions when they have.
+                         Apart from this, the values could be a dictionary where of the form {'values': [values], 'probability': 1, special_parameter: VALUE}
+                         The probability is the ratio of using this operation and special_parameters are indicated in the above descriptions when they have.
 
-		:param synthetic_image_creator (function): A model that returns an image passing a random initialisation with input_synthesizer_size
-		:param input_synthesizer_size (tuple): The size of the synthesiser input.
-		:param seed: A seed to initiate numpy random seed in case of need. By default, None
-		'''
+        :param synthetic_image_creator (function): A model that returns an image passing a random initialisation with input_synthesizer_size
+        :param input_synthesizer_size (tuple): The size of the synthesiser input.
+        :param seed: A seed to initiate numpy random seed in case of need. By default, None
+        '''
         self.perform_checker = True
         self.seed = seed
         self._operations = operations
@@ -79,9 +79,9 @@ class Augmentor(object):
 
     def rescale(self, im):
         """
-		Rescale an image between 0 and 255
-		:param im (array): An image or set of images
-		"""
+        Rescale an image between 0 and 255
+        :param im (array): An image or set of images
+        """
         if np.max(im) == np.min(im):
             return (im * 0).astype(np.uint8)
 
@@ -535,10 +535,13 @@ class Augmentor(object):
                         int: Minimum number of boxes rows directions
                         int: Maximum number of boxes rows directions
                         Selection is done by a uniform distribution between minimum and maximum values.
-        :param kwargs: For this operation, the only extra parameter is the whether an image is a mask.
+        :param kwargs: For this operation, there are two extra parameters:
                         mask_positions: The positions in images that are masks.
-        :return: A list with the occluded images
+                        use_color: The colour to use. If the colour is not passed or it is a negative value or greater
+                        than 255, gaussian noise will be used instead.
+        :return:
         """
+        use_color = kwargs.get('use_color', -1)
         if not self.check_images_equal_size(images):
             print('For occlusions, the size of the images must be the same. Aborting')
             return images
@@ -556,11 +559,14 @@ class Augmentor(object):
         swapped_images = []
         for ii in range(len(images)):
             if no_mask_positions[ii]:
-                im = 30 * np.random.randn(*(images[ii].shape)) + 127.5
-                im[im < 0] = 0
-                im[im > 255] = 255
+                if use_color < 0 and use_color > 255:
+                    im = 30 * np.random.randn(*(images[ii].shape)) + 127.5
+                    im[im < 0] = 0
+                    im[im > 255] = 255
+                else:
+                    im = use_color * np.ones(tuple(images[ii].shape))
             else:
-                im = np.zeros(*(images[ii].shape))
+                im = np.zeros(tuple(images[ii].shape))
             swapped_images.append(im)
 
         new_images = swap_patches(images, values, 'occlusion', swapped_images, **kwargs)
@@ -842,11 +848,11 @@ class Augmentor(object):
 
     def skew(self, images, values, **kwags):
         """
-		Skew images
-		:param images(list or array): A list or array of images, each being 3D. This method requires all the images
-		                            to be of the same size
-		:param values: First value the skew type: TILT, TILT_TOP_BOTTOM, TILT_LEFT_RIGHT, CORNER or RANDOM.
-		                The other two are the minimum and maximum skew (0 to 1 values).
+        Skew images
+        :param images(list or array): A list or array of images, each being 3D. This method requires all the images
+                                    to be of the same size
+        :param values: First value the skew type: TILT, TILT_TOP_BOTTOM, TILT_LEFT_RIGHT, CORNER or RANDOM.
+                        The other two are the minimum and maximum skew (0 to 1 values).
 
                      - ``TILT`` will randomly skew either left, right, up, or down.
                        Left or right means it skews on the x-axis while up and down
@@ -858,9 +864,9 @@ class Augmentor(object):
                      - ``CORNER`` will randomly skew one **corner** of the image either
                        along the x-axis or y-axis. This means in one of 8 different
                        directions, randomly.
-		:param kwags: Extra parameters. They are not used in this method but it is required for consistency
-		:return: A list with the skew images
-		"""
+        :param kwags: Extra parameters. They are not used in this method but it is required for consistency
+        :return: A list with the skew images
+        """
         if not self.check_images_equal_size(images):
             print('The skew operation can only be performed when the images have the same dimensions. Aborting')
             return images
@@ -900,16 +906,16 @@ class Augmentor(object):
     def translate(self, images, values, **kwargs):
         """
         Translate an image along x, y or both. The way to move is given as in flipping
-		:param images: A list of numpy arrays, each being an image
-		:param values: A set of 3 or 5 values.
-						1. Type of translation: 'VERTICAL', 'VER', 'HORIZONTAL', 'HOR', 'RANDOM', 'ALL'
-						2. Minimum translation at x position (or both if only 3 values).
-						3. Maximum translation at x position (or both if only 3 values).
-						4. Minimum translation at y position (optional).
-						5. Maximum translation at y position (optional).
-						Values 2 - 5 are relative to the size of the image, so values are between -1 and 1.
-		:param kwargs: Not used
-		:return: A list with the translated images
+        :param images: A list of numpy arrays, each being an image
+        :param values: A set of 3 or 5 values.
+                        1. Type of translation: 'VERTICAL', 'VER', 'HORIZONTAL', 'HOR', 'RANDOM', 'ALL'
+                        2. Minimum translation at x position (or both if only 3 values).
+                        3. Maximum translation at x position (or both if only 3 values).
+                        4. Minimum translation at y position (optional).
+                        5. Maximum translation at y position (optional).
+                        Values 2 - 5 are relative to the size of the image, so values are between -1 and 1.
+        :param kwargs: Not used
+        :return: A list with the translated images
         """
         if not self.check_images_equal_size(images):
             print('The skew operation can only be performed when the images have the same dimensions. Aborting')
@@ -1008,4 +1014,3 @@ class Augmentor(object):
             output.append(image)
 
         return output
-

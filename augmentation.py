@@ -537,11 +537,11 @@ class Augmentor(object):
                         Selection is done by a uniform distribution between minimum and maximum values.
         :param kwargs: For this operation, there are two extra parameters:
                         mask_positions: The positions in images that are masks.
-                        use_color: The colour to use. If the colour is not passed or it is a negative value or greater
+                        use_colour: The colour to use. If the colour is not passed or it is a negative value or greater
                         than 255, gaussian noise will be used instead.
-        :return:
+        :return: List of images with occlusion
         """
-        use_color = kwargs.get('use_color', -1)
+        use_colour = kwargs.get('use_color', -1)
         if not self.check_images_equal_size(images):
             print('For occlusions, the size of the images must be the same. Aborting')
             return images
@@ -559,12 +559,12 @@ class Augmentor(object):
         swapped_images = []
         for ii in range(len(images)):
             if no_mask_positions[ii]:
-                if use_color < 0 and use_color > 255:
+                if use_colour < 0 and use_colour > 255:
                     im = 30 * np.random.randn(*(images[ii].shape)) + 127.5
                     im[im < 0] = 0
                     im[im > 255] = 255
                 else:
-                    im = use_color * np.ones(tuple(images[ii].shape))
+                    im = use_colour * np.ones(tuple(images[ii].shape))
             else:
                 im = np.zeros(tuple(images[ii].shape))
             swapped_images.append(im)
@@ -914,9 +914,13 @@ class Augmentor(object):
                         4. Minimum translation at y position (optional).
                         5. Maximum translation at y position (optional).
                         Values 2 - 5 are relative to the size of the image, so values are between -1 and 1.
-        :param kwargs: Not used
-        :return: A list with the translated images
+        :param kwargs: For this operation, there is only one extra parameters:
+                        use_color: The colour to use. If the colour is not passed or it is a negative value or greater
+                        than 255, gaussian noise will be used instead.
+        :return:
         """
+        use_colour = kwargs.get('use_colour', -1)
+
         if not self.check_images_equal_size(images):
             print('The skew operation can only be performed when the images have the same dimensions. Aborting')
             return images
@@ -926,8 +930,9 @@ class Augmentor(object):
             raise ValueError(
                 'The number of values for the translation operation must be a list or tuple with 3 or 5 values')
         if values[0].upper() not in self.flip_types:
-            raise ValueError('The name {} does not exist for the translate operation. Possible values are: {}'.format(values,
-                                                                                                                 self.flip_types))
+            raise ValueError(
+                'The name {} does not exist for the translate operation. Possible values are: {}'.format(values,
+                                                                                                         self.flip_types))
         for i, v in enumerate(values[1:]):
             if len(values) == 5:
                 j = 1 - i // 2  # There are four values (two ranges) and every two we use the same values of the shape. The inversion is because PIL uses x,y instead of height, width
@@ -937,9 +942,9 @@ class Augmentor(object):
             if isinstance(v, float) and (v > 1.0 or v < -1.0):
                 raise ValueError('When float is used, the values must be between -1 and 1 inclusive.')
             if isinstance(v, float):
-                values[i + 1] = int(images[0].size[j] * v)
+                values[i + 1] = int(images[0].shape[j] * v)
             elif isinstance(v, int):
-                if v > images[0].size[j] or v < -images[0].size[j]:
+                if v > images[0].shape[j] or v < -images[0].shape[j]:
                     raise ValueError(
                         'When integers are used, the values for translation must be within the size of the image.')
             else:
@@ -963,9 +968,12 @@ class Augmentor(object):
             if len(image.shape) == 2:
                 image = image[:, :, np.newaxis]
             h, w, c = image.shape
-            im = 30 * np.abs(np.random.randn(h, w, c)) + 127.5
-            im[im < 0] = 0
-            im[im > 255] = 255
+            if use_colour < 0 or use_colour > 255:
+                im = 30 * np.abs(np.random.randn(h, w, c)) + 127.5
+                im[im < 0] = 0
+                im[im > 255] = 255
+            else:
+                im = use_colour * np.ones((h, w, c))
 
             if values[0].lower() == 'horizontal' or values[0].lower() == 'hor':
                 ty = 0

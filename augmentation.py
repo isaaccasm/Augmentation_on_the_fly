@@ -37,6 +37,7 @@ class Augmentor(object):
 										level (at least it is going to be returned in this way). However, this will perform a reduction to less levels than 255
 						 - rgb swapping: True or False. This opertion swaps the RGB channels randomly
 						 - rotation: (min angle, max angle) - in degrees
+						 - sharpness: (min_value, max_value) - The values must be between -5 and 5, 1 means original image not 0.
 						 - shear: (type, magnitude_min, magnitude_max) types are "random", 'hor', 'ver'. The magnitude are the angles to shear in degrees
 						 - skew: (type, magnitude_min, magnitude_max), where types are: "TILT", "TILT_LEFT_RIGHT", "TILT_TOP_BOTTOM", "CORNER", "RANDOM", "ALL"
 						 - solarise: [] doing a solarisation (max(image) - image)
@@ -120,6 +121,9 @@ class Augmentor(object):
         norm = lambda x: np.squeeze(np.uint8(x)) if np.max(x) > 1.0 else np.uint8(x * 255)
         pil_obj = [Image.fromarray(norm(image)) for image in images]
 
+        # If some extra data gets modified, like the labels of the images, then it must be returned. The output would be
+        # a dictionary with the images in the key images and the other parameters with the same name as in the input.
+        output_extra = {}
         for type_data in ['pil', 'numpy']:
             operations = new_operations[type_data]
             if type_data == 'numpy':
@@ -159,13 +163,27 @@ class Augmentor(object):
                             pil_obj = op(pil_obj, input_data.get('values', []), **extra_data)
                         else:
                             output = op(output, input_data.get('values', []), **extra_data)
+                            # If the operation returns a dictionary, means that a parameters from extra_data has been
+                            # modified, when this happens, extra_data must be updated for future calls and the final
+                            # output should include the modified values.
+                            if isinstance(output, dict):
+                                copy_dict = output
+                                output = copy_dict['images']
+                                for key, value in copy_dict.items():
+                                    if key != 'images':
+                                        output_extra[key] = values
+                                        extra_data[key] = value
                     else:
                         print('The operation {} does not exist, Aborting'.format(operation))
 
         # output = [np.array(image) for image in pil_obj]
 
         if get_first_value:
-            return output[0]
+            output = output[0]
+        if output_extra:
+            output_extra['images'] = output
+            output = output_extra
+
         return output
 
     def check_images_equal_size(self, images):
@@ -617,6 +635,32 @@ class Augmentor(object):
             output.append(image.resize((x, y), resample=Image.BICUBIC))
 
         return output
+
+    def sample_pairing(self, images, values, **kwargs):
+        """
+        This augmentation performs a weighted average of the image being augmented an another one that must be included
+        in the values. The paper recommends to use this augmentation in three steps for better convergence:
+        1. SamplePairing is completely disabled for the first epochs.
+        2. SamplePairing is enabled for a few epochs and then disabled again. This alternating process should be used
+            for the majority of the epochs.
+        3. At the end of training SamplePairing is completely disabled again. This is named fine-tuning in the paper.
+
+        :param images: A list of numpy arrays, each being an image
+        :param values: 4 values the minimum and maximum angle. Values between -360 and 360
+        :param kwargs: It will check whether a mask exists, if it does the process will not continue
+                        - mask_positions: The positions in images that are masks.
+                        It requires the labels of the images as integers, not one hot encoding. This is to avoid masks
+                        tp be passed, only vectors will be allowed.
+        :return: A list of numpy arrays with t
+
+        """
+        labels = kwargs.get('labels', None)
+        if not labels:
+            raise ValueError('For the operations sample_pairing the labels of the images must be passed in the run function with the key labels')
+
+        if hasattr(labels[0], '__len__'):
+            ValueError('In the operation sample_pairing the labels must be a 1D array or list. Only classification is allowed')
+
 
     def sharpness(self, images, values, **kwargs):
         """

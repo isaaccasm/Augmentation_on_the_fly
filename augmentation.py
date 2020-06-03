@@ -66,7 +66,7 @@ class Augmentor(object):
 
         self.initial_prob = {'flip': 0.5, 'solarise': 0.5, 'greyscale': 0.5, 'rgb_swapping': 0.5}
 
-        self.numpy_fun = ['illumination', 'noise', 'occlusion', 'posterisation', 'rgb_swapping', 'translate']
+        self.numpy_fun = ['illumination', 'noise', 'occlusion', 'posterisation', 'rgb_swapping', 'sample_pairing', 'translate']
 
     @property
     def operations(self):
@@ -96,6 +96,9 @@ class Augmentor(object):
         """
         if self.seed is not None:
             np.random.seed(self.seed)
+
+        if len(images) == 0:
+            return images
 
         new_operations = {'numpy': {}, 'pil': {}}
         for operation, values in self.operations.items():
@@ -171,7 +174,7 @@ class Augmentor(object):
                                 output = copy_dict['images']
                                 for key, value in copy_dict.items():
                                     if key != 'images':
-                                        output_extra[key] = values
+                                        output_extra[key] = value
                                         extra_data[key] = value
                     else:
                         print('The operation {} does not exist, Aborting'.format(operation))
@@ -188,10 +191,10 @@ class Augmentor(object):
 
     def check_images_equal_size(self, images):
         """
-		Check that all the images have the same size
-		:param images: A list of images
-		:return: True if all images have same size otherwise False
-		"""
+        Check that all the images have the same size
+        :param images: A list of images
+        :return: True if all images have same size otherwise False
+        """
         get_size = lambda x: x.size
         if isinstance(images[0], np.ndarray):
             get_size = lambda x: x.shape[:2]
@@ -203,6 +206,19 @@ class Augmentor(object):
                 return False
 
         return True
+
+    def check_groups_images_equal_size(self, images, images2):
+        """
+        Check that all the images in images and images2 has the same size. It assumes that both images and images2
+        have at least one image
+        :param images: A list of images (numpy array or PIL)
+        :param images2: A list of images (numpy or PIL)
+        """
+        output = True
+        output = output and self.check_images_equal_size(images)
+        output = output and self.check_images_equal_size(images2)
+
+        return output and self.check_images_equal_size([np.array(images[0]), np.array(images2[0])])
 
     def brightness(self, images, values, **kwargs):
         """
@@ -649,18 +665,51 @@ class Augmentor(object):
         :param values: 4 values the minimum and maximum angle. Values between -360 and 360
         :param kwargs: It will check whether a mask exists, if it does the process will not continue
                         - mask_positions: The positions in images that are masks.
-                        It requires the labels of the images as integers, not one hot encoding. This is to avoid masks
-                        tp be passed, only vectors will be allowed.
+                        It requires the labels of the images as one hot encoding, otherwise the result will not be good
+                        imaging that when mixing a an image of label 0 and 2, new_label = weight*0 + (1-weight)*2. This
+                        means that if we have a weight of 0.5, the new label is 1 by mixing a 0 and 2 label images,
+                        which does not make sense.
         :return: A list of numpy arrays with t
 
         """
-        labels = kwargs.get('labels', None)
-        if not labels:
-            raise ValueError('For the operations sample_pairing the labels of the images must be passed in the run function with the key labels')
+        labels = np.array(kwargs.get('labels', None))
+        if len(labels) == 0:
+            raise ValueError('For the operation sample_pairing the labels of the images must be passed in the run function with the key labels')
+        if not hasattr(labels[0], '__len__'):
+            raise ValueError('In the operation sample_pairing the labels must be a 2D array or list of lists. Only one hot encoding vectors')
+        if not hasattr(values, '__len__') or len(values) != 4:
+            raise ValueError('The number of values for the sample_pairing operation must be a list or tuple with 4 values. The minimum and maximum weights, a list with images to mix and a their respective labels')
 
-        if hasattr(labels[0], '__len__'):
-            ValueError('In the operation sample_pairing the labels must be a 1D array or list. Only classification is allowed')
+        if kwargs.get('mask_positions', None):
+            print('The operation sample_pairing does not allow masks to be passed. Aborting')
 
+        if len(values[2]) != len(values[3]):
+            raise ValueError('In the operation sample_pairing, the number of images and labels used for mixing must be the same, since they correspondent')
+        if len(values[3]) == 0:
+            raise ValueError('In the operation sample_pairing, at least one image and one labels must be passed to mix with the original images')
+        if not hasattr(values[3][0], '__len__'):
+            raise ValueError('In the operation sample_pairing the labels for mixing must be a 2D array or list of lists. Only one hot encoding vectors')
+
+        output = {'images': [], 'labels': []}
+        image_labels = list(zip(values[2], values[3]))
+        num_images = len(image_labels)
+
+        name = 'sample_pairing'
+        if not self.check_groups_images_equal_size(images, values[2]):
+            print('For {}, the size of all the images, including the ones for mixing must be the same. Aborting'.format(
+                name))
+            return images
+
+        weight = checker(name, 'weights for averaging', values[:2], 2, 0, 1)
+
+        for image, label in zip(images, labels):
+            pos = np.random.randint(0, num_images - 1, 1)[0]
+            image_mixing, label_mixing = image_labels[pos]
+            new_image = self.rescale(weight * image + (1 - weight) * image_mixing)
+            output['images'].append(new_image)
+            output['labels'].append(weight * label + (1 - weight) * np.array(label_mixing))
+
+        return output
 
     def sharpness(self, images, values, **kwargs):
         """

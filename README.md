@@ -165,3 +165,5 @@ An example of image and mask augmentation for an operation that is not applied t
  Plane images are from the dataset <a href="https://www.ime.usp.br/~eduardob/datasets/sky/"> Sky </a> under the Creative commons license.
  
  Other images are from <a href="https://www.pexels.com/"> Pexels </a>, having no copyrights.
+ 
+ The `shear`, `skewness`, `brightness`, `color_balance` and `contrast` are modifications of the same transformation from <a href="https://github.com/mdbloice/Augmentor"> Augmentor </a>"

@@ -338,6 +338,8 @@ def swap_patches(images, values, name_op, swapped_images, **kwargs):
     new_images = [image.astype(float) for image in images]
 
     if values[0].lower() == 'hide_and_seek':
+        ver = np.round(h / float(ver)).astype(int)
+        hor = np.round(w / float(hor)).astype(int)
         num_divisions = ver * hor
         selected_patches = np.random.choice(np.arange(num_divisions), num_patches, replace=False)
 

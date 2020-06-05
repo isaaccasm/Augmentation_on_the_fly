@@ -30,8 +30,8 @@ There are two main steps:
      <td>Augmented image with mask</td>
   </tr>
   <tr>
-    <td><p float="left"><img src="./images/0051.jpg" width=80 height=40> <img src="./images/0051_gt.jpg" width=80 height=40></p></td>
-    <td><p float="left"><img src="./images/0051.jpg" width=80 height=40> <img src="./images/0051_gt.jpg" width=80 height=40></p></td>
+    <td><p float="left"><img src="./images/0051.jpg" width=200 > <img src="./images/0051_gt.jpg" width=200></p></td>
+    <td><p float="left"><img src="./images/0051.jpg" width=200 > <img src="./images/0051_gt.jpg" width=200></p></td>
   </tr>
  </table>
 

@@ -148,7 +148,7 @@ class Augmentor(object):
                     elif (len(image.shape) == 2 and channel == 3) or (
                             len(image.shape) == 3 and image.shape[2] == 1 and channel == 3):
                         image = np.dstack([image, image, image])
-                output.append(image)
+                    output.append(image)
 
 
             for operation, values in operations.items():

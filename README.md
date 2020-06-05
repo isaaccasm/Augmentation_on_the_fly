@@ -159,3 +159,9 @@ An example of image and mask augmentation for an operation that is not applied t
     <td><p float="left"><img src="./images/squirrel_aug2.jpg" width=300 ></p></td>
   </tr>
  </table>
+ 
+ ## Acknowledgements
+ 
+ Plane images are from the dataset <a href="https://www.ime.usp.br/~eduardob/datasets/sky/"> Sky </a> under the Creative commons license.
+ 
+ Other images are from <a href="https://www.pexels.com/"> Pexels </a>, having no copyrights.

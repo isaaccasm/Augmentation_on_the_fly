@@ -139,9 +139,9 @@ An example of image and mask augmentation for an operation that is not applied t
      <td><b> Augmented image shear</b></td>
   </tr>
   <tr>
-    <td><p float="left"><img src="./images/car.jpg" width=200 > </p></td>
-    <td><p float="left"><img src="./images/car_aug1.jpg" width=200 ></p></td>
-    <td><p float="left"><img src="./images/car_aug2.jpg" width=200 ></p></td>
+    <td><p float="left"><img src="./images/car.jpg" width=250 > </p></td>
+    <td><p float="left"><img src="./images/car_aug1.jpg" width=250 ></p></td>
+    <td><p float="left"><img src="./images/car_aug2.jpg" width=250 ></p></td>
   </tr>
  </table>
  
@@ -154,8 +154,8 @@ An example of image and mask augmentation for an operation that is not applied t
      <td><b> Augmented image with occlusion hide_and_seek</b></td>
   </tr>
   <tr>
-    <td><p float="left"><img src="./images/squirrel_original.jpg" width=200 > </p></td>
-    <td><p float="left"><img src="./images/squirrel_aug1.jpg" width=200 ></p></td>
-    <td><p float="left"><img src="./images/squirrel_aug2.jpg" width=200 ></p></td>
+    <td><p float="left"><img src="./images/squirrel_original.jpg" width=300 > </p></td>
+    <td><p float="left"><img src="./images/squirrel_aug1.jpg" width=300 ></p></td>
+    <td><p float="left"><img src="./images/squirrel_aug2.jpg" width=300 ></p></td>
   </tr>
  </table>

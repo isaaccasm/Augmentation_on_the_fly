@@ -2,9 +2,8 @@ import math
 
 import numpy as np
 from PIL import Image, ImageOps, ImageEnhance
-from skimage.io import imread
 
-from utils import checker, check_range, convert_to_absolute, create_circular_mask, skew, swap_patches, create_grid_masks
+from src.utils import checker, check_range, convert_to_absolute, create_circular_mask, skew, swap_patches, create_grid_masks
 
 class Augmentor(object):
     """

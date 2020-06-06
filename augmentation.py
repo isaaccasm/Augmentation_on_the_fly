@@ -655,13 +655,14 @@ class Augmentor(object):
             raise ValueError(
                 'The number of values for the posterisation operation must be a list or tuple with 2 values')
 
+        levels = checker('Posterisation', 'levels', values, 2, 1, 256)
         no_mask_positions = np.ones(len(images)).astype(bool)
         for pos in kwargs.get('mask_positions', []): no_mask_positions[pos] = False
 
         # the idea is to reduce the number of levels in the image, so if we need to get 128 levels, means that we need
         # to get the pixels to be between 0 and 128 and then multiply them by 2. So we need to first divide them between
         # 256 /128 = 2
-        levels = 256 // np.random.randint(values[0], values[1], 1)[0]
+        levels = 256 // levels
 
         outputs = []
         for i, image in enumerate(images):
@@ -734,10 +735,16 @@ class Augmentor(object):
         3. At the end of training SamplePairing is completely disabled again. This is named fine-tuning in the paper.
 
         :param images: A list of numpy arrays, each being an image
-        :param values: 4 values the minimum and maximum angle. Values between -360 and 360
+        :param values: 4 values. - Minimum value for weight to mix the images (the original image is multiplied by weight
+                                    where the new image is multiplied by 1 - weight). The value must be >= 0
+                                 - Maximum value for the weight to mix images. The value must be <= 1
+                                 - A list with the images to use for the mixing with the original ones. For each image one
+                                    of them would be selected automatically.
+                                 - A list with the labels of the images that are going to be used for mixing up. The
+                                    labels must be one hot vectors.
         :param kwargs: It will check whether a mask exists, if it does the process will not continue
                         - mask_positions: The positions in images that are masks.
-                        It requires the labels of the images as one hot encoding, otherwise the result will not be good
+                        - labels: It requires the labels of the images as one hot encoding, otherwise the result will not be good
                         imaging that when mixing a an image of label 0 and 2, new_label = weight*0 + (1-weight)*2. This
                         means that if we have a weight of 0.5, the new label is 1 by mixing a 0 and 2 label images,
                         which does not make sense.

@@ -16,7 +16,7 @@ class Augmentor(object):
     https://github.com/mdbloice/Augmentor/blob/master/Augmentor/Operations.py
     """
 
-    def __init__(self, operations, synthetic_image_creator=None, input_synthesizer_size=None, seed=None):
+    def __init__(self, operations, std_noise=50, seed=None):
         '''
         Use seed if you want to apply the same transformation to different group of images. For instance, when images and
         masks need to be processed.
@@ -53,16 +53,13 @@ class Augmentor(object):
 
                          Apart from this, the values could be a dictionary where of the form {'values': [values], 'probability': 1, special_parameter: VALUE}
                          The probability is the ratio of using this operation and special_parameters are indicated in the above descriptions when they have.
-
-        :param synthetic_image_creator (function): A model that returns an image passing a random initialisation with input_synthesizer_size
-        :param input_synthesizer_size (tuple): The size of the synthesiser input.
+        :param std_noise: The standard deviation to add to the noise, when using translation, zoom, occlusion, etc. By default: 50
         :param seed: A seed to initiate numpy random seed in case of need. By default, None
         '''
         self.perform_checker = True
         self.seed = seed
         self._operations = operations
-        self.synthetic_image_creator = synthetic_image_creator
-        self.input_synthesizer_size = input_synthesizer_size
+        self._std_noise = std_noise
 
         self.skew_types = ["TILT", "TILT_LEFT_RIGHT", "TILT_TOP_BOTTOM", "CORNER", "RANDOM", "ALL"]
         self.flip_types = ['VERTICAL', 'VER', 'HORIZONTAL', 'HOR', 'RANDOM', 'ALL']
@@ -461,7 +458,7 @@ class Augmentor(object):
         for ii in range(len(images)):
             if no_mask_positions[ii]:
                 if use_colour < 0 or use_colour > 255:
-                    im = 30 * np.random.randn(*(images[ii].shape)) + 127.5
+                    im = self._std_noise * np.random.randn(*(images[ii].shape)) + 127.5
                     im[im < 0] = 0
                     im[im > 255] = 255
                 else:
@@ -625,7 +622,7 @@ class Augmentor(object):
         for ii in range(len(images)):
             if no_mask_positions[ii]:
                 if use_colour < 0 and use_colour > 255:
-                    im = 30 * np.random.randn(*(images[ii].shape)) + 127.5
+                    im = self._std_noise * np.random.randn(*(images[ii].shape)) + 127.5
                     im[im < 0] = 0
                     im[im > 255] = 255
                 else:
@@ -1041,7 +1038,7 @@ class Augmentor(object):
                 image = image[:, :, np.newaxis]
             h, w, c = image.shape
             if use_colour < 0 or use_colour > 255:
-                im = 30 * np.abs(np.random.randn(h, w, c)) + 127.5
+                im = self._std_noise * np.abs(np.random.randn(h, w, c)) + 127.5
                 im[im < 0] = 0
                 im[im > 255] = 255
             else:
@@ -1064,8 +1061,12 @@ class Augmentor(object):
         Zoom an image. This means to resize the image and then cropping it if the new size is larger or adding noise
         padding if it is smaller.
         :param images: A list of images
-        :param values: Tuple with the range of values of the zoom factor
-        :param kwargs: Not used
+        :param values: Tuple with the range of values of the zoom factor. Values must be between 0.1 and 10
+        :param kwargs: There are two values:
+                        - use_colour: When the zoom is smaller than 1, outside of the image will be padded with a single
+                                    colour, use a value outside of the range [0, 255] for noise.
+                        - use_replication: When True the regions outside of the original imagea are padded with the image
+                                            replicated from the closest pixels.
         :return: A list with the zoomed images
         """
         h, w = images[0].size
@@ -1074,8 +1075,15 @@ class Augmentor(object):
             print('The zoom operation can only be performed when the images have the same dimensions. Aborting')
             return images
 
+        use_replication = kwargs.get('use_replication', False)
+        use_colour = kwargs.get('use_colour', -1)
+
         factor = checker('zoom', 'the range of zoom', values, 2, 0.1, 10)
         h_new, w_new = int(factor * h), int(factor * w)
+
+        dim = [w, h, c]
+        if c == 1:
+            dim = [w, h]
 
         output = []
         for image in images:
@@ -1083,11 +1091,38 @@ class Augmentor(object):
             dif_h = int(np.round(np.abs(h_new - h) / 2))
             dif_w = int(np.round(np.abs(w_new - w) / 2))
             if factor < 1:
-                if c == 1:
-                    im = 20 * np.random.randn(w, h) + 127.5
+                image = np.array(image)
+                if use_replication:
+                    im = np.zeros(tuple(dim))
+                    im[dif_w: w_new + dif_w, dif_h:h_new + dif_h, ...] = image
+
+                    if dif_w > w_new:
+                        if len(image.shape) == 2:
+                            image = np.tile(image, [np.ceil(dif_w / w_new).astype(int), 1])
+                        else:
+                            image = np.tile(image, [np.ceil(dif_w / w_new).astype(int), 1, 1])
+                    im[:dif_w, dif_h:h_new + dif_h, ...] = image[dif_w - 1::-1, :, ...]
+                    w2 = image.shape[0] - 1
+                    im[w_new + dif_w:, dif_h:h_new + dif_h, ...] = image[w2:w2 - (im.shape[0] - w_new - dif_w):-1, :,
+                                                                   ...]
+
+                    im_aux = im[:, dif_h:h_new + dif_h, ...]
+                    if dif_h > h_new:
+                        if len(image.shape) == 2:
+                            im_aux = np.tile(im_aux, [1, np.ceil(dif_h / h_new).astype(int)])
+                        else:
+                            im_aux = np.tile(im_aux, [1, np.ceil(dif_h / h_new).astype(int), 1])
+                    h2 = im_aux.shape[1] - 1
+                    im[:, :dif_h:, ...] = im_aux[:, dif_h - 1::-1, ...]
+                    im[:, h_new + dif_h:, ...] = im_aux[:, h2:h2 - (im.shape[1] - h_new - dif_h):-1, ...]
                 else:
-                    im = 20 * np.random.randn(w, h, c) + 127.5
-                im[dif_w: w_new + dif_w, dif_h:h_new + dif_h, ...] = np.array(image)
+                    if use_colour < 0 or use_colour > 255:
+                        im = self._std_noise * np.random.randn(*dim) + 127.5
+                        im[im < 0] = 0
+                        im[im > 255] = 255
+                    else:
+                        im = use_colour * np.ones(tuple(dim))
+                    im[dif_w: w_new + dif_w, dif_h:h_new + dif_h, ...] = image
                 image = Image.fromarray(self.rescale(im))
             if factor > 1:
                 image = image.crop((dif_h, dif_w, h + dif_h, w + dif_w))

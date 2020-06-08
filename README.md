@@ -110,10 +110,18 @@ The magnitude are values from 0 to 1.
 The values are relative to the size of the image. So they must be between -1 and 1. 
 The operation displaces an image filling the new part with noise or a given colour. 
 As extra values it can use:
-     1. `use_colour`: The colour of the patches, a value between 0 and 255. If negative or greater than 255
+   1. `use_colour`: The colour of the patches, a value between 0 and 255. If negative or greater than 255
                     it will use noise. By default is noise.  
 - <b>zoom</b>: (min value, max value) 
-            The values are relative to the current size. So, 1 is the real size image (standard 0.9, 1.1)
+
+The values are relative to the current size. So, 1 is the real size image (standard 0.9, 1.1)
+As extra values, one can use:
+   1. `use_colour`: When the zoom is smaller than 1, outside of the image will be padded with a single colour, 
+      use a value outside of the range [0, 255] for noise.
+   2. `use_replication`: When True the regions outside of the original imagea are padded with the image replicated 
+      from the closest pixels.
+            
+            
 
 ### Extra values
 In order to use the augmentation, one needs to create an object of Augmentor and populat it with a dictionary.

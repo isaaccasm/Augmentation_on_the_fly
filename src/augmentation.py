@@ -1097,10 +1097,13 @@ class Augmentor(object):
                     im[dif_w: w_new + dif_w, dif_h:h_new + dif_h, ...] = image
 
                     if dif_w > w_new:
+                        rep = 2 * np.ceil(dif_w / w_new).astype(int) // 2 + 1
                         if len(image.shape) == 2:
-                            image = np.tile(image, [np.ceil(dif_w / w_new).astype(int), 1])
+                            image = np.tile(image, [rep, 1])
                         else:
-                            image = np.tile(image, [np.ceil(dif_w / w_new).astype(int), 1, 1])
+                            image = np.tile(image, [rep, 1, 1])
+                        for i in range(1, rep, 2):
+                            image[i * w_new + 1:(i + 1) * w_new, ...] = image[(i + 1) * w_new - 1:i * w_new:-1, ...]
                     im[:dif_w, dif_h:h_new + dif_h, ...] = image[dif_w - 1::-1, :, ...]
                     w2 = image.shape[0] - 1
                     im[w_new + dif_w:, dif_h:h_new + dif_h, ...] = image[w2:w2 - (im.shape[0] - w_new - dif_w):-1, :,
@@ -1108,10 +1111,14 @@ class Augmentor(object):
 
                     im_aux = im[:, dif_h:h_new + dif_h, ...]
                     if dif_h > h_new:
+                        rep = 2 * np.ceil(dif_h / h_new).astype(int) // 2 + 1
                         if len(image.shape) == 2:
-                            im_aux = np.tile(im_aux, [1, np.ceil(dif_h / h_new).astype(int)])
+                            im_aux = np.tile(im_aux, [1, rep])
                         else:
-                            im_aux = np.tile(im_aux, [1, np.ceil(dif_h / h_new).astype(int), 1])
+                            im_aux = np.tile(im_aux, [1, rep, 1])
+                        for i in range(1, rep, 2):
+                            image[:, i * h_new + 1:(i + 1) * h_new, ...] = image[:, (i + 1) * h_new - 1:i * h_new:-1,
+                                                                           ...]
                     h2 = im_aux.shape[1] - 1
                     im[:, :dif_h:, ...] = im_aux[:, dif_h - 1::-1, ...]
                     im[:, h_new + dif_h:, ...] = im_aux[:, h2:h2 - (im.shape[1] - h_new - dif_h):-1, ...]

@@ -989,6 +989,7 @@ class Augmentor(object):
         :return:
         """
         use_colour = kwargs.get('use_colour', -1)
+        use_replication = kwargs.get('use_replication', False)
 
         if not self.check_images_equal_size(images):
             print('The skew operation can only be performed when the images have the same dimensions. Aborting')
@@ -1037,6 +1038,7 @@ class Augmentor(object):
             if len(image.shape) == 2:
                 image = image[:, :, np.newaxis]
             h, w, c = image.shape
+
             if use_colour < 0 or use_colour > 255:
                 im = self._std_noise * np.abs(np.random.randn(h, w, c)) + 127.5
                 im[im < 0] = 0
@@ -1052,6 +1054,26 @@ class Augmentor(object):
 
             im[max(ty, 0): min(h + ty, h), max(tx, 0): min(w + tx, w), ...] = image[max(-ty, 0): min(h - ty, h),
                                                                               max(-tx, 0): min(w - tx, w), ...]
+
+            if use_replication:
+                init_y = max(ty, 0)
+                end_y = min(h + ty, h)
+                init_x = max(tx, 0)
+                end_x = min(w + tx, w)
+                init_x_r = max(-tx, 0)
+                init_y_r = max(-ty, 0)
+
+                if ty > 0:
+                    im_aux = np.vstack([image[init_y::-1, :, ...], image])
+                else:
+                    im_aux = np.vstack([image, image[-1:end_y - h - 1:-1, :, ...]])
+
+                if tx > 0:
+                    im_aux = np.hstack([im_aux[:, init_x::-1, ...], im_aux])
+                else:
+                    im_aux = np.hstack([im_aux, im_aux[:, -1:end_x - w - 1:-1, ...]])
+
+                im = im_aux[init_y_r:h + init_y_r, init_x_r:w + init_x_r, ...]
 
             output.append(self.rescale(np.squeeze(im)))
         return output

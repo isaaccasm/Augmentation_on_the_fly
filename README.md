@@ -88,6 +88,7 @@ Values are between 1 and 256. The idea is that each pixel can have a value betwe
 - <b>rotation</b>: (min angle, max angle) 
 
 Both values are in degrees. It performs a rotation of the image.
+    1. `use_colour`: The colour of the patches, a value or list with 3 values between 0 and 255.
 - <b>sample_pairing</b>: (min_weight, max_weight, mix_images, mix_labels). 
 
 The values for min_weight and max_weight must be between 0 and 1.
@@ -112,13 +113,15 @@ The operation displaces an image filling the new part with noise or a given colo
 As extra values it can use:
    1. `use_colour`: The colour of the patches, a value between 0 and 255. If negative or greater than 255
                     it will use noise. By default is noise.  
+   2. `use_replication`: When True the regions outside of the original image are padded with the image replicated 
+      from the closest pixels.
 - <b>zoom</b>: (min value, max value) 
 
 The values are relative to the current size. So, 1 is the real size image (standard 0.9, 1.1)
 As extra values, one can use:
    1. `use_colour`: When the zoom is smaller than 1, outside of the image will be padded with a single colour, 
       use a value outside of the range [0, 255] for noise.
-   2. `use_replication`: When True the regions outside of the original imagea are padded with the image replicated 
+   2. `use_replication`: When True the regions outside of the original image are padded with the image replicated 
       from the closest pixels.
             
             
@@ -150,6 +153,14 @@ config = {'brightness': (0.5,5.0)}
 is the same as
 ```
 config = {'brightness': {'values': (0.5,5.0)}}
+```
+
+Notice that the config's keys are the same name as the methods. Thus in case the same operation needs to be used more
+than once, numbers can be used after the name. For instance,
+
+```
+config = {'brightness': {'values': (1.5,5.0)},
+           'brightness1': {'values': (0.1,0.5)}}
 ```
 
 ## Applying the operations on images

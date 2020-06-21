@@ -69,7 +69,8 @@ class Augmentor(object):
 
         self.initial_prob = {'flip': 0.5, 'solarise': 0.5, 'greyscale': 0.5, 'rgb_swapping': 0.5}
 
-        self.numpy_fun = ['grid_mask', 'illumination', 'noise', 'occlusion', 'posterisation', 'rgb_swapping', 'sample_pairing', 'translate']
+        self.numpy_fun = ['blur', 'grid_mask', 'illumination', 'noise', 'occlusion', 'posterisation',
+                          'rgb_swapping', 'sample_pairing', 'translate']
 
     @property
     def operations(self):
@@ -105,7 +106,9 @@ class Augmentor(object):
 
         new_operations = {'numpy': {}, 'pil': {}}
         for operation, values in self.operations.items():
-            if operation in self.numpy_fun:
+            # Remove digits from operation
+            operation2 = ''.join([i for i in operation if not i.isdigit()])
+            if operation2 in self.numpy_fun:
                 new_operations['numpy'][operation] = values
             else:
                 new_operations['pil'][operation] = values
@@ -163,6 +166,8 @@ class Augmentor(object):
                     extra_data[key] = val
 
                 if np.random.rand(1)[0] < probability:
+                    # Remove digits from operation
+                    operation = ''.join([i for i in operation if not i.isdigit()])
                     op = getattr(self, operation, None)
                     if op is not None:
                         if type_data == 'pil':
@@ -572,13 +577,15 @@ class Augmentor(object):
         no_mask_positions = np.ones(len(images)).astype(bool)
         for pos in kwargs.get('mask_positions', []): no_mask_positions[pos] = False
 
+        use_gray_noise = kwargs.get('use_gray_noise', False)
+
         output = []
         for i, image in enumerate(images):
             if no_mask_positions[i]:
-                if len(image.shape) == 2:
-                    image = image[:, :, np.newaxis]
-                row, col, ch = image.shape
-                gauss = std * np.clip(np.random.randn(row, col, ch), -3, 3)
+                gauss = std * np.clip(np.random.randn(image.shape), -3, 3)
+                if len(image.shape) == 3 and use_gray_noise:
+                    gauss = np.tile(gauss[:, :, 0], [1, 1, 3])
+
                 noisy = image + gauss
                 output.append(self.rescale(noisy))  # Image.fromarray(self.rescale(noisy)))
             else:

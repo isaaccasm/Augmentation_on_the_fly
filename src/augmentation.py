@@ -734,7 +734,7 @@ class Augmentor(object):
                 if isinstance(use_colour, list):
                     colour = tuple(use_colour)
             else:
-                colour = [0, 0, 0]
+                colour = (0, 0, 0)
 
             # Rotate, while expanding the canvas size
             image = image.rotate(angle, expand=True, resample=Image.BICUBIC, fillcolor=colour)

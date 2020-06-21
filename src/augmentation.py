@@ -361,9 +361,9 @@ class Augmentor(object):
         height = int(np.ceil(cropped_height / 2.0))
 
         for i, image in enumerate(images):
-            if no_mask_positions[i]:
-                image = image.crop((center_h - height, center_w - width, center_h + height, center_w + width))
-                image = image.resize((shape[0], shape[1]))
+            #if no_mask_positions[i]:
+            image = image.crop((center_h - height, center_w - width, center_h + height, center_w + width))
+            image = image.resize((shape[0], shape[1]))
                 # image = Image.fromarray(self.rescale(image))
             output.append(image)
 
@@ -714,14 +714,30 @@ class Augmentor(object):
             raise ValueError("The range of the angles must be between {} and {}.".format(-360, 360))
 
         angle = checker('Rotate', 'range of rotation', values, 2, -360, 360)
+        use_colour = kwargs.get('use_colour', None)
+        use_replication = kwargs.get('use_replication', False)
+        no_mask_positions = np.ones(len(images)).astype(bool)
+        for pos in kwargs.get('mask_positions', []): no_mask_positions[pos] = False
+
         output = []
-        for image in images:
+        for i, image in enumerate(images):
             # Get size before we rotate
             x = image.size[0]
             y = image.size[1]
 
+            if no_mask_positions[i]:
+                colour = use_colour
+                if isinstance(use_colour, (int, float)) and (image.mode == 'RGB' or image.mode == 'RGBA'):
+                    colour = (use_colour, use_colour, use_colour)
+                if isinstance(use_colour, (list, tuple)) and not (image.mode == 'RGB' or image.mode == 'RGBA'):
+                    colour = use_colour[0]
+                if isinstance(use_colour, list):
+                    colour = tuple(use_colour)
+            else:
+                colour = [0, 0, 0]
+
             # Rotate, while expanding the canvas size
-            image = image.rotate(angle, expand=True, resample=Image.BICUBIC)
+            image = image.rotate(angle, expand=True, resample=Image.BICUBIC, fillcolor=colour)
 
             # Return the image, re-sized to the size of the image passed originally
             output.append(image.resize((x, y), resample=Image.BICUBIC))
